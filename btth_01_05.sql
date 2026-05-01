@@ -1,104 +1,268 @@
-CREATE DATABASE bt_01_05;
-USE bt_01_05;
+--  PHẦN D – SQL
+CREATE DATABASE sql_team_a;
+USE sql_team_a;
 
-CREATE TABLE Instructors (
-    instructor_id INT PRIMARY KEY AUTO_INCREMENT,
-    instructor_name VARCHAR(100) NOT NULL
+CREATE TABLE users(
+	user_id INT PRIMARY KEY AUTO_INCREMENT,
+    fullname VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    birth_date DATE
+
 );
 
 
-CREATE TABLE Courses (
-    course_id INT PRIMARY KEY AUTO_INCREMENT,
-    course_name VARCHAR(100) NOT NULL,
-    instructor_id INT, 
-    FOREIGN KEY (instructor_id) REFERENCES Instructors(instructor_id) 
+CREATE TABLE categories(
+	category_id INT PRIMARY KEY AUTO_INCREMENT,
+    category_name VARCHAR(100) NOT NULL
+
+);
+
+CREATE TABLE products(
+	product_id INT PRIMARY KEY AUTO_INCREMENT,
+    product_name VARCHAR(100) NOT NULL,
+    price BIGINT CHECK(price > 0),
+    quantity INT CHECK(quantity > 0),
+    category_id INT,
+    FOREIGN KEY (category_id) REFERENCES categories(category_id)
+
+);
+
+CREATE TABLE orders (
+    order_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT,
+    order_date DATE DEFAULT (CURRENT_DATE),
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    order_status ENUM('Pending', 'Paid', 'Cancelled')
+    
+);
+CREATE TABLE order_detail(
+	order_detail_id INT PRIMARY KEY AUTO_INCREMENT,
+    order_id INT,
+    product_id INT ,
+    quantity_total INT,
+    total_price INT,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    UNIQUE(order_id, product_id)
+
 );
 
 
-CREATE TABLE Students (
-    student_id INT PRIMARY KEY AUTO_INCREMENT,
-    student_name VARCHAR(100) NOT NULL,
-    date_of_birth DATE
+INSERT INTO categories (category_name) VALUES 
+('Electronics'),
+('Clothing'),
+('Books'),
+('Home Appliances');
+
+
+INSERT INTO products (product_name, price, quantity, category_id) VALUES 
+('Laptop Dell XPS', 25000000, 50, 1),    
+('Iphone 15 Pro', 28000000, 100, 1),     
+('Áo thun nam', 150000, 200, 2),         
+('Sách Đắc Nhân Tâm', 85000, 150, 3),    
+('Nồi chiên không dầu', 1500000, 80, 4), 
+('Bàn phím cơ', 1200000, 60, 1);         
+
+
+INSERT INTO users (fullname, email, birth_date) VALUES 
+('Đỗ Tiến Nam', 'nam.do@example.com', '2005-10-15'),
+('Nguyễn Văn A', 'nva@example.com', '2000-01-01'),
+('Trần Thị B', 'ttb@example.com', '1995-05-20'),
+('Lê Hoàng C', 'lhc@example.com', '1998-08-08'),
+('Phạm Thị D', 'ptd@example.com', '2002-12-12'),
+('User Ảo', 'ghost@example.com', '2000-01-01'); 
+
+
+INSERT INTO orders (user_id, order_date, order_status) VALUES 
+(1, '2026-04-01', 'Paid'),
+(1, '2026-04-05', 'Pending'),
+(2, '2026-04-10', 'Paid'),
+(3, '2026-04-15', 'Cancelled'),
+(4, '2026-04-20', 'Paid');
+
+
+INSERT INTO order_detail (order_id, product_id, quantity_total, total_price) VALUES 
+(1, 1, 1, 25000000), 
+(1, 2, 2, 56000000),
+(2, 3, 3, 450000),  
+(3, 5, 1, 1500000), 
+(4, 4, 2, 170000),   
+(5, 1, 2, 50000000); 
+
+-- Q1
+-- Lấy danh sách tất cả đơn hàng gồm:
+-- order_id
+-- order_date
+-- full_name (user)
+-- total_money
+
+SELECT 
+	o.order_id,
+	o.order_date,
+	u.fullname,
+	od.total_price
+FROM order_detail od
+INNER JOIN orders o
+ON o.order_id = od.order_id
+INNER JOIN users u
+ON o.user_id = u.user_id;
+
+
+-- Tìm tất cả sản phẩm thuộc category = 'Electronics'
+SELECT 
+	product_id,
+	product_name,
+	price,
+	quantity,
+	category_id
+FROM products
+WHERE category_id = (
+	SELECT category_id
+    FROM categories
+    WHERE category_name = 'Electronics'
 );
 
+-- Tìm danh sách users (user_id, full_name, email)
+SELECT 
+	user_id,
+	fullname,
+	email
+FROM users;
 
-CREATE TABLE Grades (
-    student_id INT,
-    course_id INT,
-    score FLOAT,
-    PRIMARY KEY (student_id, course_id),
-    FOREIGN KEY (student_id) REFERENCES Students(student_id) ,
-    FOREIGN KEY (course_id) REFERENCES Courses(course_id) 
+-- Tính tổng số tiền tất cả đơn hàng trong hệ thống.
+SELECT SUM(total_price) AS total_money
+FROM order_detail;
+
+-- Tính tổng số lượng sản phẩm đã bán theo từng product:
+-- product_id
+-- product_name (nếu có)
+-- total_quantity
+SELECT 
+	p.product_id,
+	p.product_name,
+	SUM(od.quantity_total) AS quantity_total
+FROM order_detail od
+INNER JOIN products p
+ON od.product_id = p.product_id
+GROUP BY product_id;
+
+-- Tìm sản phẩm có tổng số lượng bán lớn nhất.
+SELECT 
+	p.product_name,
+	SUM(od.quantity_total) AS quantity_total
+FROM order_detail od
+INNER JOIN products p
+ON od.product_id = p.product_id
+GROUP BY product_name
+ORDER BY quantity_total DESC
+LIMIT 1;
+
+-- Q7
+-- Lấy danh sách đơn hàng kèm:
+-- order_id
+-- full_name
+-- total_money
+-- số lượng sản phẩm trong đơn
+SELECT 
+	o.order_id,
+	u.fullname,
+	SUM(od.total_price) AS total_price,
+	SUM(od.quantity_total) AS quantity_total
+FROM order_detail od
+INNER JOIN orders o
+ON o.order_id = od.order_id
+INNER JOIN users u
+ON o.user_id = u.user_id
+GROUP BY o.order_id,
+		u.fullname;
+
+-- Tìm sản phẩm không xuất hiện trong bất kỳ Order_Details nào 
+SELECT 
+	product_name
+FROM products
+WHERE product_id NOT IN (
+SELECT product_id
+FROM order_detail
 );
 
-
-INSERT INTO Instructors (instructor_name) VALUES 
-('Nguyen Van A'),
-('Tran Thi B'),
-('Le Van C');
-
-
-INSERT INTO Courses (course_name, instructor_id) VALUES 
-('Web Programming', 1),
-('Database Systems', 2),
-('Machine Learning', 3),
-('Data Structures', NULL);
-
-
-INSERT INTO Students (student_name, date_of_birth) VALUES 
-('Doan Hai', '2005-08-15'),
-('Le Mai', '2004-05-10'),
-('Pham An', '2005-12-01'),
-('Vuong Minh', '2003-10-22');
-
-
-INSERT INTO Grades (student_id, course_id, score) VALUES 
-(1, 1, 9.50), 
-(2, 1, 8.00),
-(3, 1, 7.50), 
-(1, 2, 8.00), 
-(4, 2, 6.50), 
-(3, 4, NULL);
-
--- 1.	In ra danh sách tất cả Khóa học kèm theo tên giảng viên dạy khóa đó. Đảm bảo khóa học chưa có giảng viên vẫn phải xuất hiện trong báo cáo. 
+-- Tìm danh sách users đã từng mua hàng, kèm số đơn hàng của mỗi user.
 SELECT 
-	course_name,
-	instructor_name
-FROM courses c
-LEFT JOIN instructors i
-ON c.instructor_id = i.instructor_id;
+	u.fullname,
+	COUNT(o.user_id) AS total_orders
+FROM users u
+LEFT JOIN orders o
+ON o.user_id = u.user_id
+GROUP BY fullname;
 
--- 2.	Tìm danh sách sinh viên sinh năm 2005.
+-- Tìm sản phẩm có giá cao hơn giá trung bình của tất cả sản phẩm.
 SELECT 
-	student_name
-FROM students
-WHERE YEAR(date_of_birth) = '2005';
+	product_name,
+	price
+FROM products
+WHERE price > (
+	SELECT AVG(price)
+    FROM products
+);
 
--- 3.	In ra bảng điểm của riêng môn "Lập trình Web" (Gồm: Tên SV, Mã SV, Điểm thi). Sắp xếp điểm từ cao xuống thấp.
+-- Tìm users có tổng chi tiêu lớn hơn mức trung bình của tất cả users.
 SELECT 
-	student_name,
-	g.student_id,
-    score
-FROM grades g
-INNER JOIN students s
-ON g.student_id = s.student_id
-INNER JOIN courses c
-ON c.course_id = g.course_id
-WHERE course_name = 'Web Programming'
-ORDER BY score DESC;
+	fullname,
+	SUM(total_price) AS total_price
+FROM order_detail od
+INNER JOIN orders o
+ON o.order_id = od.order_id
+INNER JOIN users u
+ON o.user_id = u.user_id
+WHERE total_price > (
+	SELECT AVG(total_price)
+    FROM order_detail
+)
+GROUP BY fullname;
 
--- 4.	In ra 1 báo cáo tổng hợp toàn trung tâm gồm: Tên Sinh Viên, Tên Khóa Học, và Tên Giảng Viên phụ trách khóa đó. 
-
+-- Tìm đơn hàng có giá trị lớn nhất trong hệ thống.
 SELECT 
-s.student_name,
-c.course_name,
-i.instructor_name
-FROM courses c
-LEFT JOIN instructors i
-ON c.instructor_id = i.instructor_id
-INNER JOIN grades g
-ON g.course_id = c.course_id
-INNER JOIN students s
-ON s.student_id =g.student_id
+    order_id, 
+    SUM(total_price) AS total_price
+FROM order_detail
+GROUP BY order_id
+ORDER BY total_price DESC
+LIMIT 1;
 
+-- Tìm category có tổng doanh thu cao nhất.
+SELECT 
+	category_name,
+	SUM(total_price) AS total_price
+FROM order_detail od
+INNER JOIN orders o
+ON o.order_id = od.order_id
+INNER JOIN products p
+ON od.product_id = p.product_id
+INNER JOIN categories c
+ON c.category_id = p.category_id
+GROUP BY category_name
+ORDER BY total_price DESC
+LIMIT 1;
 
+-- Tìm top 3 sản phẩm bán chạy nhất (theo quantity).
+-- Theo quantity giảm dần
+-- Nếu bằng nhau thì ưu tiên product_id nhỏ hơn
+SELECT 
+	product_name,
+	quantity_total,
+	price
+FROM order_detail od
+INNER JOIN products p
+ON od.product_id = p.product_id
+ORDER BY quantity_total DESC, od.product_id ASC
+LIMIT 3;
+
+-- Tìm users chưa từng đặt bất kỳ đơn hàng nào.
+SELECT 
+	user_id,
+	fullname,
+	email
+FROM users
+WHERE user_id NOT IN (
+	SELECT user_id
+    FROM orders
+);
